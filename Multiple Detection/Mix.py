@@ -9,6 +9,17 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import numpy as np
 
+
+
+MAX_LENGTH = 512
+PCA_COMPUNENTS = 128
+PARTITIAL = 0.1
+LR = 2e-5
+BATCH_SIZE = 32
+NUM_EPOCHS = 3
+
+
+
 # Function to read multiple JSONL files and extract texts and labels
 def read_multiple_jsonl_files(file_paths):
     texts = []
@@ -58,18 +69,18 @@ class TextDataset(Dataset):
         }
 
 # Load BERT tokenizer
-tokenizer = BertTokenizer.from_pretrained('/root/Multiple Detection/bert-base-uncased')
+tokenizer = BertTokenizer.from_pretrained('/root/yyx/Multiple Detection/bert-base-uncased')
 
 # Define maximum length
-max_length = 256
+max_length = MAX_LENGTH
 
 # Read data from JSONL files
 file_paths = [
-    'Multiple Detection/qxp/en_gpt2_lines.jsonl',
-    'Multiple Detection/qxp/en_gpt3_lines.jsonl',
-    'Multiple Detection/qxp/en_gptneo_lines.jsonl',
-    'Multiple Detection/qxp/en_human_lines.jsonl',
-    'Multiple Detection/qxp/en_llama_lines.jsonl'
+    'yyx/Multiple Detection/qxp/en_gpt2_lines.jsonl',
+    'yyx/Multiple Detection/qxp/en_gpt3_lines.jsonl',
+    'yyx/Multiple Detection/qxp/en_gptneo_lines.jsonl',
+    'yyx/Multiple Detection/qxp/en_human_lines.jsonl',
+    'yyx/Multiple Detection/qxp/en_llama_lines.jsonl'
 ]  # Replace with your actual file paths
 texts, labels = read_multiple_jsonl_files(file_paths)
 
@@ -83,7 +94,7 @@ tfidf_vectorizer = TfidfVectorizer(max_features=5000)
 tfidf_features = tfidf_vectorizer.fit_transform(texts).toarray()
 
 # Reduce dimensionality of TFIDF features using PCA
-pca = PCA(n_components=32)
+pca = PCA(n_components=PCA_COMPUNENTS)
 print("PCA for TF-IDF...")
 tfidf_features_reduced = pca.fit_transform(tfidf_features)
 
@@ -91,28 +102,28 @@ tfidf_features_reduced = pca.fit_transform(tfidf_features)
 dataset = TextDataset(texts, labels, tokenizer, tfidf_features_reduced, max_length)
 
 # Split dataset into train and test sets 
-train_size = int(0.7 * len(dataset))
+train_size = int(0.8 * len(dataset))
 test_size = len(dataset) - train_size
 train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
 
 # Use a smaller portion of the dataset to speed up training and testing
-subset_train_size = int(0.5 * train_size)  
-subset_test_size = int(0.5 * test_size)    
+subset_train_size = int(PARTITIAL * train_size)  
+subset_test_size = int(PARTITIAL * test_size)    
 
 train_dataset, _ = torch.utils.data.random_split(train_dataset, [subset_train_size, train_size - subset_train_size])
 test_dataset, _ = torch.utils.data.random_split(test_dataset, [subset_test_size, test_size - subset_test_size])
 
 
 # Create DataLoaders
-train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-test_dataloader = DataLoader(test_dataset, batch_size=32, shuffle=True)
+train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 # Define model class
 class AIGTClassifier(nn.Module):
     def __init__(self, pretrained_model_name, num_classes):
         super(AIGTClassifier, self).__init__()
         self.bert = BertModel.from_pretrained(pretrained_model_name)
-        self.fc1 = nn.Linear(self.bert.config.hidden_size + 32, 128)  # Adjust input size to include TFIDF features
+        self.fc1 = nn.Linear(self.bert.config.hidden_size + PCA_COMPUNENTS, 128)  # Adjust input size to include TFIDF features
         self.fc2 = nn.Linear(128, num_classes)
 
     def forward(self, input_ids, attention_mask, tfidf_features):
@@ -204,14 +215,14 @@ def evaluate_model(model, dataloader, criterion, device):
     return epoch_loss, epoch_acc
 
 # Define model
-pretrained_model_name = '/root/Multiple Detection/bert-base-uncased'
+pretrained_model_name = '/root/yyx/Multiple Detection/bert-base-uncased'
 model = AIGTClassifier(pretrained_model_name, num_classes)
 
 # Define loss function and optimizer
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.1)
-num_epochs = 3
+num_epochs = NUM_EPOCHS
 
 # Move model to GPU if available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
