@@ -7,17 +7,18 @@ from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
 import numpy as np
 import logging
-from utils import read_multiple_jsonl_files, convert_labels_to_indices, evaluate_model, train_model
+from utils import read_multiple_jsonl_files, convert_labels_to_indices, train_concat
 
 
 # Configure logging
-logging.basicConfig(filename='train.log', level=logging.INFO, format='%(asctime)s %(message)s')
+logging.basicConfig(filename='/root/yyx/Multiple Detection/logs/train.log', level=logging.INFO, format='%(asctime)s %(message)s')
 
 MAX_LENGTH = 512
 PARTITIAL = 1
-LR = 2e-5
+LR = 1e-5
 BATCH_SIZE = 32
 NUM_EPOCHS = 8
+LOG_ITER = 50
 
 # Define label to index mapping
 label_to_index = {'llama': 0, 'human': 1, 'gptneo': 2, 'gpt3re': 3, 'gpt2': 4}
@@ -25,11 +26,11 @@ num_classes = len(label_to_index)
 
 # Define custom dataset class
 class TextDataset(Dataset):
-    def __init__(self, texts, labels, tokenizer, tfidf_features, max_length):
+    def __init__(self, texts, labels, tokenizer, extra_features, max_length):
         self.texts = texts
         self.labels = labels
         self.tokenizer = tokenizer
-        self.tfidf_features = tfidf_features
+        self.extra_features = extra_features
         self.max_length = max_length
 
     def __len__(self):
@@ -45,7 +46,7 @@ class TextDataset(Dataset):
         return {
             'input_ids': encoding['input_ids'].flatten(),
             'attention_mask': encoding['attention_mask'].flatten(),
-            'tfidf_features': torch.tensor(self.tfidf_features[idx], dtype=torch.float),
+            'extra_features': torch.tensor(self.extra_features[idx], dtype=torch.float),
             'label': torch.tensor(label, dtype=torch.long)
         }
 
@@ -54,21 +55,21 @@ class AIGTClassifier(nn.Module):
     def __init__(self, pretrained_model_name, num_classes):
         super(AIGTClassifier, self).__init__()
         self.bert = BertModel.from_pretrained(pretrained_model_name)
-        self.fc1 = nn.Linear(self.bert.config.hidden_size + PCA_COMPUNENTS, 128)  # Adjust input size to include TFIDF features
+        self.fc1 = nn.Linear(self.bert.config.hidden_size + PCA_COMPUNENTS, 128)  
         self.fc2 = nn.Linear(128, num_classes)
 
-    def forward(self, input_ids, attention_mask, tfidf_features):
+    def forward(self, input_ids, attention_mask, extra_features):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
         pooled_output = outputs.pooler_output
         
-        # Standardize the BERT and TFIDF features
-        standardizer = StandardScaler()
-        pooled_output = standardizer.fit_transform(pooled_output.cpu().detach().numpy())
-        tfidf_features = standardizer.fit_transform(tfidf_features.cpu().detach().numpy())
+        # # Standardize the BERT and TFIDF features
+        # standardizer = StandardScaler()
+        # pooled_output = standardizer.fit_transform(pooled_output.cpu().detach().numpy())
+        # extra_features = standardizer.fit_transform(extra_features.cpu().detach().numpy())
 
         # Concatenate BERT and TFIDF features
         concat_features = torch.tensor(
-            np.concatenate((pooled_output, tfidf_features), axis=1),
+            np.concatenate((pooled_output, extra_features), axis=1),
             dtype=torch.float,
             device=input_ids.device
         )
@@ -79,7 +80,7 @@ class AIGTClassifier(nn.Module):
         return logits
 
 # Load BERT tokenizer
-tokenizer = BertTokenizer.from_pretrained('/root/yyx/Multiple Detection/bert-base-uncased')
+tokenizer = BertTokenizer.from_pretrained('/root/yyx/Multiple Detection/bert-base-cased')
 
 # Define maximum length
 max_length = MAX_LENGTH
@@ -120,7 +121,7 @@ for g_length in g_length_list:
     test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     # Define model
-    pretrained_model_name = '/root/yyx/Multiple Detection/bert-base-uncased'
+    pretrained_model_name = '/root/yyx/Multiple Detection/bert-base-cased'
     model = AIGTClassifier(pretrained_model_name, num_classes)
 
     # Define loss function and optimizer
@@ -134,8 +135,12 @@ for g_length in g_length_list:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     logging.info("="*50)
+    print("="*50)
     logging.info(f"Training with Guassian Noise of {g_length} length...")
+    print(f"Training with Guassian Noise of {g_length} length...")
     # Train the model
-    train_model(model, train_dataloader, test_dataloader, criterion, optimizer, scheduler, NUM_EPOCHS, device)
+    train_concat(model, train_dataloader, test_dataloader, criterion, optimizer, scheduler, NUM_EPOCHS, LOG_ITER, device)
     logging.info(f"Training finished!")
+    print(f"Training finished!")
     logging.info("="*50)
+    print("="*50)
