@@ -11,7 +11,7 @@ from utils import read_multiple_jsonl_files, convert_labels_to_indices, train_BE
 
 
 # Configure logging
-logging.basicConfig(filename='/root/yyx/Multiple Detection/logs/train_BERT.log', level=logging.INFO, format='%(asctime)s %(message)s')
+logging.basicConfig(filename='/root/yyx/Multiple_Detection/logs/train_BERT.log', level=logging.INFO, format='%(asctime)s %(message)s')
 
 MAX_LENGTH = 512
 PARTITIAL = 0.5
@@ -70,18 +70,18 @@ class AIGTClassifier(nn.Module):
         return logits
 
 # Load BERT tokenizer
-tokenizer = BertTokenizer.from_pretrained('/root/yyx/Multiple Detection/bert-base-cased')
+tokenizer = BertTokenizer.from_pretrained('/root/yyx/Multiple_Detection/bert-base-cased')
 
 # Define maximum length
 max_length = MAX_LENGTH
 
 # Read data from JSONL files
 file_paths = [
-    '/root/yyx/Multiple Detection/dataset/en_gpt2_lines.jsonl',
-    '/root/yyx/Multiple Detection/dataset/en_gpt3_lines.jsonl',
-    '/root/yyx/Multiple Detection/dataset/en_gptneo_lines.jsonl',
-    '/root/yyx/Multiple Detection/dataset/en_human_lines.jsonl',
-    '/root/yyx/Multiple Detection/dataset/en_llama_lines.jsonl'
+    '/root/yyx/Multiple_Detection/dataset/en_gpt2_lines.jsonl',
+    '/root/yyx/Multiple_Detection/dataset/en_gpt3_lines.jsonl',
+    '/root/yyx/Multiple_Detection/dataset/en_gptneo_lines.jsonl',
+    '/root/yyx/Multiple_Detection/dataset/en_human_lines.jsonl',
+    '/root/yyx/Multiple_Detection/dataset/en_llama_lines.jsonl'
 ]  
 texts, labels = read_multiple_jsonl_files(file_paths)
 # Convert labels to indices
@@ -105,7 +105,7 @@ train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True
 test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 # Define model
-pretrained_model_name = '/root/yyx/Multiple Detection/bert-base-cased'
+pretrained_model_name = '/root/yyx/Multiple_Detection/bert-base-cased'
 model = AIGTClassifier(pretrained_model_name, num_classes)
 
 # Define loss function and optimizer

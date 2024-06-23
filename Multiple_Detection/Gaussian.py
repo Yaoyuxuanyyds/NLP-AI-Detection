@@ -11,7 +11,7 @@ from utils import read_multiple_jsonl_files, convert_labels_to_indices, train_co
 
 
 # Configure logging
-logging.basicConfig(filename='/root/yyx/Multiple Detection/logs/train.log', level=logging.INFO, format='%(asctime)s %(message)s')
+logging.basicConfig(filename='/root/yyx/Multiple_Detection/logs/train.log', level=logging.INFO, format='%(asctime)s %(message)s')
 
 MAX_LENGTH = 512
 PARTITIAL = 1
@@ -61,37 +61,31 @@ class AIGTClassifier(nn.Module):
     def forward(self, input_ids, attention_mask, extra_features):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
         pooled_output = outputs.pooler_output
-        
+
         # # Standardize the BERT and TFIDF features
         # standardizer = StandardScaler()
         # pooled_output = standardizer.fit_transform(pooled_output.cpu().detach().numpy())
         # extra_features = standardizer.fit_transform(extra_features.cpu().detach().numpy())
 
-        # Concatenate BERT and TFIDF features
-        concat_features = torch.tensor(
-            np.concatenate((pooled_output, extra_features), axis=1),
-            dtype=torch.float,
-            device=input_ids.device
-        )
-
+        concat_features = torch.cat((pooled_output, extra_features), dim=1)
         intermediate_output = self.fc1(concat_features)
         intermediate_output = torch.relu(intermediate_output)
         logits = self.fc2(intermediate_output)
         return logits
 
 # Load BERT tokenizer
-tokenizer = BertTokenizer.from_pretrained('/root/yyx/Multiple Detection/bert-base-cased')
+tokenizer = BertTokenizer.from_pretrained('/root/yyx/Multiple_Detection/bert-base-cased')
 
 # Define maximum length
 max_length = MAX_LENGTH
 
 # Read data from JSONL files
 file_paths = [
-    '/root/yyx/Multiple Detection/dataset/en_gpt2_lines.jsonl',
-    '/root/yyx/Multiple Detection/dataset/en_gpt3_lines.jsonl',
-    '/root/yyx/Multiple Detection/dataset/en_gptneo_lines.jsonl',
-    '/root/yyx/Multiple Detection/dataset/en_human_lines.jsonl',
-    '/root/yyx/Multiple Detection/dataset/en_llama_lines.jsonl'
+    '/root/yyx/Multiple_Detection/dataset/en_gpt2_lines.jsonl',
+    '/root/yyx/Multiple_Detection/dataset/en_gpt3_lines.jsonl',
+    '/root/yyx/Multiple_Detection/dataset/en_gptneo_lines.jsonl',
+    '/root/yyx/Multiple_Detection/dataset/en_human_lines.jsonl',
+    '/root/yyx/Multiple_Detection/dataset/en_llama_lines.jsonl'
 ]  
 texts, labels = read_multiple_jsonl_files(file_paths)
 # Convert labels to indices
@@ -121,7 +115,7 @@ for g_length in g_length_list:
     test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     # Define model
-    pretrained_model_name = '/root/yyx/Multiple Detection/bert-base-cased'
+    pretrained_model_name = '/root/yyx/Multiple_Detection/bert-base-cased'
     model = AIGTClassifier(pretrained_model_name, num_classes)
 
     # Define loss function and optimizer
