@@ -11,7 +11,7 @@ from utils import read_multiple_jsonl_files, convert_labels_to_indices, train_co
 
 
 # Configure logging
-logging.basicConfig(filename='/root/yyx/Multiple_Detection/logs/train_BERT_TF_MutiDimension.log', level=logging.INFO, format='%(asctime)s %(message)s')
+logging.basicConfig(filename='/root/yyx/Multiple_Detection/logs/train_BERT_TF_MutiDimension_noPCA.log', level=logging.INFO, format='%(asctime)s %(message)s')
 
 MAX_LENGTH = 512
 PARTITIAL = 1
@@ -19,8 +19,7 @@ LR = 1e-5
 BATCH_SIZE = 32
 NUM_EPOCHS = 8
 LOG_ITER = 50
-TF_DIMENSION = 10000
-PCA_DIMENSIONs = [5000, 1000, 256, 64, 8]
+TF_DIMENSIONS = [4096, 2048, 1024, 512, 256, 64, 8, 4096, 2048, 1024, 512, 256, 64, 8]
 
 
 # Define custom dataset class
@@ -95,23 +94,15 @@ labels = convert_labels_to_indices(labels, label_to_index)
 
 
 # Training
-for PCA_DIMENSION in PCA_DIMENSIONs:
-
+for TF_DIMENSION in TF_DIMENSIONS:
     # Compute TFIDF features
-    print("TF-IDF featuring...")
+    print(f"TF-IDF with {TF_DIMENSION} Dimension...")
     tfidf_vectorizer = TfidfVectorizer(max_features=TF_DIMENSION)
     tfidf_features = tfidf_vectorizer.fit_transform(texts).toarray()
     print(f"Have TF-IDF features with shape: {tfidf_features.shape}.")
 
-    # Reduce dimensionality of TFIDF features using PCA
-    pca = PCA(n_components=PCA_DIMENSION)
-    print(f"PCA for TF-IDF to {PCA_DIMENSION} Dimension...")
-    tfidf_features_reduced = pca.fit_transform(tfidf_features)
-    print(f"Have TF-IDF features with shape: {tfidf_features_reduced.shape}.")
-    print(f"First feature: \n {tfidf_features_reduced[0]}")
-
     # Create dataset
-    dataset = TextDataset(texts, labels, tokenizer, tfidf_features_reduced, max_length)
+    dataset = TextDataset(texts, labels, tokenizer, tfidf_features, max_length)
     # Split dataset into train and test sets 
     train_size = int(0.8 * len(dataset))
     test_size = len(dataset) - train_size
@@ -127,7 +118,7 @@ for PCA_DIMENSION in PCA_DIMENSIONs:
 
     # Define model
     pretrained_model_name = '/root/yyx/Multiple_Detection/bert-base-cased'
-    model = AIGTClassifier(pretrained_model_name, num_classes, PCA_DIMENSION)
+    model = AIGTClassifier(pretrained_model_name, num_classes, TF_DIMENSION)
 
     # Define loss function and optimizer
     criterion = nn.CrossEntropyLoss()
@@ -141,8 +132,8 @@ for PCA_DIMENSION in PCA_DIMENSIONs:
     model.to(device)
     logging.info("="*50)
     print("="*50)
-    logging.info(f"Training BERT + TF-IDF features with Dimension-{PCA_DIMENSION}...")
-    print(f"Training BERT + TF-IDF features with Dimension-{PCA_DIMENSION}...")
+    logging.info(f"Training BERT + TF-IDF features with Dimension-{TF_DIMENSION}...")
+    print(f"Training BERT + TF-IDF features with Dimension-{TF_DIMENSION}...")
     # Train the model
     train_concat(model, train_dataloader, test_dataloader, criterion, optimizer, scheduler, NUM_EPOCHS, LOG_ITER, device)
     logging.info(f"Training finished!")
